@@ -1,5 +1,7 @@
 # Olist Marketplace Data Warehouse on BigQuery
 
+**Live app (filters + live BigQuery queries):** https://bigquery-warehouse-explorer.streamlit.app
+
 End-to-end ELT warehouse for a Brazilian e-commerce marketplace (Olist public dataset), built as a
 **raw → cleaned → business** layered model on BigQuery with dbt, orchestrated by Airflow (Cloud Composer)
 and provisioned with Terraform.
