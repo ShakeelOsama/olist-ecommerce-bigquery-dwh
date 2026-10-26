@@ -1,6 +1,6 @@
 {{
   config(
-    partition_by = {'field': 'purchase_date', 'data_type': 'date', 'granularity': 'month'},
+    partition_by = partition_if_allowed({'field': 'purchase_date', 'data_type': 'date', 'granularity': 'month'}),
     cluster_by = ['seller_id', 'category_name']
   )
 }}

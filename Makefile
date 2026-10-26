@@ -25,7 +25,7 @@ ingest-sandbox:
 
 # Sandbox has no MERGE, so incremental models are always rebuilt in full
 build-sandbox:
-	cd dbt && dbt build --target $(TARGET) --profiles-dir . --full-refresh
+	cd dbt && dbt build --target $(TARGET) --profiles-dir . --full-refresh --vars '{sandbox: true}'
 
 build:
 	cd dbt && dbt build --target $(TARGET) --profiles-dir .

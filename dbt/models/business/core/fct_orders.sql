@@ -2,7 +2,7 @@
   config(
     materialized = 'incremental',
     incremental_strategy = 'insert_overwrite',
-    partition_by = {'field': 'purchase_date', 'data_type': 'date', 'granularity': 'day'},
+    partition_by = partition_if_allowed({'field': 'purchase_date', 'data_type': 'date', 'granularity': 'day'}),
     cluster_by = ['customer_state', 'order_status'],
     on_schema_change = 'append_new_columns'
   )
