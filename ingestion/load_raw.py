@@ -16,6 +16,7 @@ Usage
 -----
     python ingestion/load_raw.py --project my-gcp-project --bucket my-landing-bucket
     python ingestion/load_raw.py --project p --bucket b --local-dir ./data   # skip Kaggle download
+    python ingestion/load_raw.py --project p --sandbox                       # free BigQuery Sandbox, no card
 """
 from __future__ import annotations
 
@@ -130,10 +131,49 @@ def load_file(bq: bigquery.Client, project: str, dataset: str, table: str,
     return rows
 
 
+def load_file_sandbox(bq: bigquery.Client, project: str, dataset: str, table: str,
+                      path: Path, columns: list[str], batch_id: str) -> int:
+    """BigQuery Sandbox (no billing): no GCS and no DML, so load the local file with a load
+    job and build the raw table with CREATE OR REPLACE TABLE ... AS SELECT (DDL is allowed).
+    Each run replaces the raw table instead of appending a new batch."""
+    target = f"{project}.{dataset}.{table}"
+    staging = f"{project}.{dataset}._stg_{table}"
+    job_config = bigquery.LoadJobConfig(
+        source_format=bigquery.SourceFormat.CSV,
+        skip_leading_rows=1,
+        schema=[bigquery.SchemaField(c, "STRING") for c in columns],
+        allow_quoted_newlines=True,
+        write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
+    )
+    with path.open("rb") as fh:
+        bq.load_table_from_file(fh, staging, job_config=job_config).result()
+
+    col_list = ", ".join(f"`{c}`" for c in columns)
+    source_file = path.name.replace("'", "")
+    safe_batch = "".join(ch for ch in batch_id if ch.isalnum() or ch in "-_")
+    bq.query(f"""
+        create or replace table `{target}`
+        partition by date(_ingested_at)
+        options (labels = [("layer", "raw"), ("source", "olist")])
+        as
+        select {col_list},
+               current_timestamp() as _ingested_at,
+               'local://{source_file}' as _source_file,
+               '{safe_batch}' as _batch_id
+        from `{staging}`
+    """).result()
+    bq.delete_table(staging, not_found_ok=True)
+    rows = bq.get_table(target).num_rows
+    log.info("Loaded %s rows into %s (sandbox mode)", f"{rows:,}", target)
+    return rows
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--project", required=True)
-    parser.add_argument("--bucket", required=True, help="GCS landing bucket")
+    parser.add_argument("--bucket", help="GCS landing bucket (not needed with --sandbox)")
+    parser.add_argument("--sandbox", action="store_true",
+                        help="BigQuery Sandbox mode: no billing, no GCS, no DML")
     parser.add_argument("--dataset", default="raw")
     parser.add_argument("--location", default="US")
     parser.add_argument("--local-dir", type=Path, default=Path("data/olist"))
@@ -142,12 +182,14 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    if not args.sandbox and not args.bucket:
+        parser.error("--bucket is required unless --sandbox is used")
 
     if not args.skip_download:
         download_from_kaggle(args.local_dir)
 
     bq = bigquery.Client(project=args.project, location=args.location)
-    gcs = storage.Client(project=args.project)
+    gcs = None if args.sandbox else storage.Client(project=args.project)
     bq.create_dataset(bigquery.Dataset(f"{args.project}.{args.dataset}"), exists_ok=True)
 
     summary: dict[str, int] = {}
@@ -156,8 +198,13 @@ def main(argv: list[str] | None = None) -> int:
         if not path.exists():
             log.error("Missing source file %s", path)
             return 1
-        uri = upload_to_gcs(gcs, args.bucket, path, args.batch_id)
-        summary[table] = load_file(bq, args.project, args.dataset, table, uri, read_header(path), args.batch_id)
+        if args.sandbox:
+            summary[table] = load_file_sandbox(bq, args.project, args.dataset, table, path,
+                                               read_header(path), args.batch_id)
+        else:
+            uri = upload_to_gcs(gcs, args.bucket, path, args.batch_id)
+            summary[table] = load_file(bq, args.project, args.dataset, table, uri,
+                                       read_header(path), args.batch_id)
 
     log.info("Batch %s complete: %s", args.batch_id, summary)
     return 0

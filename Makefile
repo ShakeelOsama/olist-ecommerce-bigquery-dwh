@@ -6,7 +6,7 @@ TARGET      ?= dev
 
 export GCP_PROJECT
 
-.PHONY: setup infra ingest build test docs clean
+.PHONY: setup infra ingest ingest-sandbox build build-sandbox test docs clean
 
 setup:
 	pip install -r requirements.txt
@@ -18,6 +18,14 @@ infra:
 
 ingest:
 	python ingestion/load_raw.py --project $(GCP_PROJECT) --bucket $(BUCKET)
+
+# BigQuery Sandbox (no billing/card): local file -> raw with DDL only
+ingest-sandbox:
+	python ingestion/load_raw.py --project $(GCP_PROJECT) --sandbox
+
+# Sandbox has no MERGE, so incremental models are always rebuilt in full
+build-sandbox:
+	cd dbt && dbt build --target $(TARGET) --profiles-dir . --full-refresh
 
 build:
 	cd dbt && dbt build --target $(TARGET) --profiles-dir .
