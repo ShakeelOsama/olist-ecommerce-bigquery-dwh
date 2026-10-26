@@ -1,0 +1,25 @@
+version: 2
+
+sources:
+  - name: olist_raw
+    description: >
+      Raw Olist marketplace extracts loaded by ingestion/load_raw.py. All business
+      columns are STRING; every row carries _ingested_at, _source_file and _batch_id.
+    database: "{{ target.project }}"
+    schema: raw
+    loaded_at_field: _ingested_at
+    freshness:
+      warn_after: {count: 26, period: hour}
+      error_after: {count: 50, period: hour}
+    tables:
+      - name: orders
+      - name: order_items
+      - name: order_payments
+      - name: order_reviews
+      - name: customers
+      - name: sellers
+      - name: products
+      - name: product_category_translation
+        freshness: null            # static reference data
+      - name: geolocation
+        freshness: null

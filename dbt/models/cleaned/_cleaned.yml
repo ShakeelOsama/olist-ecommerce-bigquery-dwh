@@ -1,0 +1,85 @@
+version: 2
+
+models:
+  - name: stg_olist__orders
+    description: One row per order, typed, deduplicated to the latest ingested version, timestamps converted from Sao Paulo local time to UTC.
+    columns:
+      - name: order_id
+        tests: [unique, not_null]
+      - name: customer_id
+        tests:
+          - not_null
+          - relationships: {to: ref('stg_olist__customers'), field: customer_id}
+      - name: order_status
+        tests:
+          - accepted_values:
+              values: [created, approved, invoiced, processing, shipped, delivered, canceled, unavailable]
+      - name: purchased_at
+        tests: [not_null]
+
+  - name: stg_olist__order_items
+    description: One row per item line within an order.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: [order_id, order_item_id]
+    columns:
+      - name: order_id
+        tests:
+          - relationships: {to: ref('stg_olist__orders'), field: order_id}
+      - name: product_id
+        tests:
+          - relationships: {to: ref('stg_olist__products'), field: product_id}
+      - name: seller_id
+        tests:
+          - relationships: {to: ref('stg_olist__sellers'), field: seller_id}
+      - name: price
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true: {expression: ">= 0"}
+
+  - name: stg_olist__order_payments
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: [order_id, payment_sequential]
+    columns:
+      - name: payment_type
+        tests:
+          - accepted_values:
+              values: [credit_card, boleto, voucher, debit_card, not_defined]
+      - name: payment_value
+        tests:
+          - dbt_utils.expression_is_true: {expression: ">= 0"}
+
+  - name: stg_olist__order_reviews
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: [review_id, order_id]
+    columns:
+      - name: review_score
+        tests:
+          - accepted_values: {values: [1, 2, 3, 4, 5], quote: false}
+
+  - name: stg_olist__customers
+    columns:
+      - name: customer_id
+        tests: [unique, not_null]
+      - name: customer_unique_id
+        tests: [not_null]
+
+  - name: stg_olist__sellers
+    columns:
+      - name: seller_id
+        tests: [unique, not_null]
+
+  - name: stg_olist__products
+    columns:
+      - name: product_id
+        tests: [unique, not_null]
+      - name: category_name
+        tests: [not_null]
+
+  - name: stg_olist__geolocation
+    description: One centroid per 5-digit zip prefix (outliers outside Brazil removed).
+    columns:
+      - name: zip_prefix
+        tests: [unique, not_null]

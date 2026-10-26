@@ -1,0 +1,53 @@
+name: dbt CI
+
+on:
+  pull_request:
+    paths: ["dbt/**", "ingestion/**", ".github/workflows/**"]
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11"}
+      - run: pip install sqlfluff==3.* ruff
+      - name: Lint Python
+        run: ruff check ingestion orchestration
+      - name: Lint SQL
+        run: sqlfluff lint dbt/models dbt/tests --config .sqlfluff
+
+  dbt-build:
+    needs: lint
+    runs-on: ubuntu-latest
+    env:
+      GCP_PROJECT: ${{ secrets.GCP_PROJECT }}
+      CI_RUN_ID: pr${{ github.event.pull_request.number }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11"}
+      - run: pip install -r requirements.txt
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: dbt build into an isolated PR dataset
+        working-directory: dbt
+        run: |
+          cp profiles.yml.example profiles.yml
+          dbt deps
+          dbt build --target ci --profiles-dir .
+
+      - name: Drop PR datasets
+        if: always()
+        run: |
+          for ds in cleaned business dbt_test__audit; do
+            bq rm -r -f -d "${GCP_PROJECT}:ci_${CI_RUN_ID}_${ds}" || true
+          done

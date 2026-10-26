@@ -1,0 +1,31 @@
+# Copy to ~/.dbt/profiles.yml (or keep in this folder and run with --profiles-dir .)
+olist_dwh:
+  target: dev
+  outputs:
+    dev:
+      type: bigquery
+      method: oauth                    # uses `gcloud auth application-default login`
+      project: "{{ env_var('GCP_PROJECT') }}"
+      dataset: "dev_{{ env_var('USER', 'me') }}"   # dev builds land in dev_<user>_cleaned / dev_<user>_business
+      location: US
+      threads: 8
+      job_execution_timeout_seconds: 600
+      maximum_bytes_billed: 5000000000           # 5 GB guardrail per query in dev
+
+    ci:
+      type: bigquery
+      method: service-account
+      keyfile: "{{ env_var('GOOGLE_APPLICATION_CREDENTIALS') }}"
+      project: "{{ env_var('GCP_PROJECT') }}"
+      dataset: "ci_{{ env_var('CI_RUN_ID', 'local') }}"
+      location: US
+      threads: 8
+
+    prod:
+      type: bigquery
+      method: service-account
+      keyfile: "{{ env_var('GOOGLE_APPLICATION_CREDENTIALS') }}"
+      project: "{{ env_var('GCP_PROJECT') }}"
+      dataset: analytics               # ignored for layer folders; see macros/generate_schema_name.sql
+      location: US
+      threads: 16

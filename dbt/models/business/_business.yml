@@ -1,0 +1,95 @@
+version: 2
+
+models:
+  - name: dim_date
+    columns:
+      - name: date_day
+        tests: [unique, not_null]
+
+  - name: dim_customers
+    description: One row per real customer (customer_unique_id) with location and lifetime stats.
+    columns:
+      - name: customer_unique_id
+        tests: [unique, not_null]
+
+  - name: dim_products
+    columns:
+      - name: product_id
+        tests: [unique, not_null]
+
+  - name: dim_sellers
+    columns:
+      - name: seller_id
+        tests: [unique, not_null]
+
+  - name: fct_orders
+    description: >
+      Order-grain fact. Incremental insert_overwrite on purchase_date partitions, re-processing
+      the trailing `reprocess_days` so late status changes (shipped -> delivered) are captured.
+    columns:
+      - name: order_id
+        tests: [unique, not_null]
+      - name: customer_unique_id
+        tests:
+          - not_null
+          - relationships: {to: ref('dim_customers'), field: customer_unique_id}
+      - name: purchase_date
+        tests:
+          - not_null
+          - relationships: {to: ref('dim_date'), field: date_day}
+      - name: gross_merchandise_value
+        tests:
+          - dbt_utils.expression_is_true: {expression: ">= 0"}
+      - name: delivery_days
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: "between 0 and 365"
+              config: {where: "delivery_days is not null", severity: warn}
+
+  - name: fct_order_items
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: [order_id, order_item_id]
+    columns:
+      - name: seller_id
+        tests:
+          - relationships: {to: ref('dim_sellers'), field: seller_id}
+
+  - name: mart_monthly_kpis
+    description: Executive KPIs per month (GMV, AOV, new customers, late delivery rate, review score).
+    columns:
+      - name: month
+        tests: [unique, not_null]
+
+  - name: mart_delivery_performance
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: [month, customer_state]
+
+  - name: mart_seller_scorecard
+    columns:
+      - name: seller_id
+        tests: [unique, not_null]
+      - name: risk_tier
+        tests:
+          - accepted_values: {values: [insufficient_data, at_risk, needs_coaching, healthy]}
+
+  - name: mart_customer_rfm
+    columns:
+      - name: customer_unique_id
+        tests: [unique, not_null]
+
+exposures:
+  - name: marketplace_health_dashboard
+    type: dashboard
+    maturity: high
+    url: https://lookerstudio.google.com/   # replace with your report URL
+    description: Looker Studio report used by ops and leadership (KPIs, delivery, sellers, CRM segments).
+    depends_on:
+      - ref('mart_monthly_kpis')
+      - ref('mart_delivery_performance')
+      - ref('mart_seller_scorecard')
+      - ref('mart_customer_rfm')
+    owner:
+      name: Data Engineering
+      email: data-eng@example.com

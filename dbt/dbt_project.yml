@@ -1,0 +1,38 @@
+name: olist_dwh
+version: "1.0.0"
+config-version: 2
+profile: olist_dwh
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+analysis-paths: ["analyses"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+vars:
+  # Orders change status for weeks after purchase (approved -> shipped -> delivered),
+  # so the incremental fact re-processes this many trailing days every run.
+  reprocess_days: 30
+  source_timezone: "America/Sao_Paulo"
+
+models:
+  olist_dwh:
+    +persist_docs:
+      relation: true
+      columns: true
+    cleaned:
+      +schema: cleaned
+      +materialized: table
+      +labels: {layer: cleaned, domain: ecommerce}
+    business:
+      +schema: business
+      +labels: {layer: business, domain: ecommerce}
+      core:
+        +materialized: table
+      marts:
+        +materialized: table
+
+tests:
+  olist_dwh:
+    +store_failures: true      # failed rows land in a dbt_test__audit dataset for triage
