@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Olist E-commerce Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--ink:#111827;--muted:#6b7280;--line:#e5e7eb;--accent:#2563eb}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 -apple-system,Segoe UI,Roboto,sans-serif}
+header{background:#0f172a;color:#fff;padding:28px 16px}
+.wrap{max-width:1180px;margin:0 auto;padding:0 16px}
+header h1{margin:0 0 4px;font-size:24px}header p{margin:0;color:#cbd5e1}
+.flow{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.flow span{background:#1e293b;border:1px solid #334155;border-radius:999px;padding:4px 12px;font-size:12px;color:#e2e8f0}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin:20px 0}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.kpi b{display:block;font-size:24px;margin-top:2px}.kpi small{color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(460px,1fr));gap:14px;margin-bottom:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;min-width:0}
+.card h2{font-size:15px;margin:0}.card p{margin:2px 0 10px;color:var(--muted);font-size:12.5px}
+.card.wide{grid-column:1/-1}.chart{position:relative;height:280px}
+table{width:100%;border-collapse:collapse;font-size:13px}td,th{padding:6px 4px;border-bottom:1px solid var(--line);text-align:left}
+th{color:var(--muted);font-weight:600}td.n{text-align:right;font-variant-numeric:tabular-nums}
+footer{color:var(--muted);font-size:12px;padding:12px 0 32px}
+@media(max-width:560px){.grid{grid-template-columns:1fr}}
+</style></head><body>
+<header><div class="wrap"><h1>Olist E-commerce Dashboard</h1><p>BigQuery warehouse: ~100k marketplace orders across 9 source tables, modelled with dbt</p>
+<div class="flow"><span>Source</span><span>→ raw</span><span>→ cleaned (validated, deduplicated)</span><span>→ business (facts, dims, marts)</span><span>→ this dashboard</span></div></div></header>
+<main class="wrap"><div class="kpis" id="kpis"></div>
+<div class="grid">
+ <div class="card wide"><h2>Monthly orders and revenue (GMV)</h2><p>From mart_monthly_kpis; months with fewer than 100 orders are left out.</p><div class="chart"><canvas id="monthly"></canvas></div></div>
+ <div class="card"><h2>Late delivery lowers the review score</h2><p>Average review (1–5) by delivery vs the promised date (fct_orders).</p><div class="chart"><canvas id="buckets"></canvas></div></div>
+ <div class="card"><h2>Late-delivery rate by month</h2><p>Share of delivered orders that arrived after the promised date.</p><div class="chart"><canvas id="late"></canvas></div></div>
+ <div class="card"><h2>Seller risk tiers</h2><p>From mart_seller_scorecard (reviews, late hand-over, cancellations).</p><div class="chart"><canvas id="risk"></canvas></div></div>
+ <div class="card"><h2>Customer segments (RFM)</h2><p>From mart_customer_rfm.</p><table id="rfm"></table></div>
+ <div class="card wide"><h2>Largest states: late-delivery rate</h2><p>12 states with the most delivered orders (mart_delivery_performance).</p><div class="chart"><canvas id="states"></canvas></div></div>
+</div>
+<footer>Built from BigQuery business-layer tables (dbt) on 2026-10-26. Data: Olist Brazilian e-commerce public dataset (Kaggle).</footer></main>
+<script>
+const D = {"kpi": [{"orders": 99441, "gmv": 15735527.03, "customers": 96096, "late_rate": 0.06773564957814217, "avg_review": 4.086386346822305, "avg_delivery_days": 12.49684876127281}], "monthly": [{"month": "2016-10-01", "orders": 324, "gmv": 51354.52, "late_delivery_rate": 0.007547169811320755, "avg_review_score": 3.561128526645771}, {"month": "2017-01-01", "orders": 800, "gmv": 136943.46, "late_delivery_rate": 0.029333333333333333, "avg_review_score": 4.062025316455701}, {"month": "2017-02-01", "orders": 1780, "gmv": 283561.69, "late_delivery_rate": 0.029643073200241985, "avg_review_score": 4.0164027149321235}, {"month": "2017-03-01", "orders": 2682, "gmv": 425617.96, "late_delivery_rate": 0.04556166535742341, "avg_review_score": 4.074032318677196}, {"month": "2017-04-01", "orders": 2404, "gmv": 405848.61, "late_delivery_rate": 0.06556665219279201, "avg_review_score": 4.043988269794714}, {"month": "2017-05-01", "orders": 3700, "gmv": 582710.83, "late_delivery_rate": 0.029892836999435984, "avg_review_score": 4.140207310420083}, {"month": "2017-06-01", "orders": 3245, "gmv": 499652.24, "late_delivery_rate": 0.030303030303030304, "avg_review_score": 4.146985705407105}, {"month": "2017-07-01", "orders": 4026, "gmv": 578753.73, "late_delivery_rate": 0.027892561983471075, "avg_review_score": 4.176441102756892}, {"month": "2017-08-01", "orders": 4331, "gmv": 661903.52, "late_delivery_rate": 0.02909611256856666, "avg_review_score": 4.238715681712431}, {"month": "2017-09-01", "orders": 4285, "gmv": 717102.72, "late_delivery_rate": 0.04385542168674699, "avg_review_score": 4.188191013879082}, {"month": "2017-10-01", "orders": 4631, "gmv": 764756.03, "late_delivery_rate": 0.041759714158106295, "avg_review_score": 4.123448726322673}, {"month": "2017-11-01", "orders": 7544, "gmv": 1172191.68, "late_delivery_rate": 0.12402249965701742, "avg_review_score": 3.9106951871657802}, {"month": "2017-12-01", "orders": 5673, "gmv": 861526.77, "late_delivery_rate": 0.07455106112824234, "avg_review_score": 4.017818959372778}, {"month": "2018-01-01", "orders": 7269, "gmv": 1101920.01, "late_delivery_rate": 0.05700947800254633, "avg_review_score": 4.0411054020275}, {"month": "2018-02-01", "orders": 6728, "gmv": 979486.16, "late_delivery_rate": 0.1414187643020595, "avg_review_score": 3.8256894484412607}, {"month": "2018-03-01", "orders": 7211, "gmv": 1152656.99, "late_delivery_rate": 0.18963301442239042, "avg_review_score": 3.752937884722997}, {"month": "2018-04-01", "orders": 6939, "gmv": 1156248.89, "late_delivery_rate": 0.04501323918799647, "avg_review_score": 4.16213860235362}, {"month": "2018-05-01", "orders": 6873, "gmv": 1145686.46, "late_delivery_rate": 0.06563935397836716, "avg_review_score": 4.194180435736201}, {"month": "2018-06-01", "orders": 6167, "gmv": 1020381.9, "late_delivery_rate": 0.011641252664371209, "avg_review_score": 4.27747923790913}, {"month": "2018-07-01", "orders": 6292, "gmv": 1039783.58, "late_delivery_rate": 0.033771716187692806, "avg_review_score": 4.263006242996652}, {"month": "2018-08-01", "orders": 6512, "gmv": 996973.51, "late_delivery_rate": 0.061880018894662256, "avg_review_score": 4.256129529683888}], "buckets": [{"bucket": "7+ days early", "sort_key": -147, "orders": 76140, "avg_review": 4.312975285171015}, {"bucket": "1-6 days early", "sort_key": -6, "orders": 12504, "avg_review": 4.179080441259377}, {"bucket": "on the day", "sort_key": 0, "orders": 1292, "avg_review": 4.033593750000003}, {"bucket": "1-7 days late", "sort_key": 1, "orders": 3672, "avg_review": 2.714166666666669}, {"bucket": "8+ days late", "sort_key": 8, "orders": 2862, "avg_review": 1.6961524631427536}], "risk": [{"risk_tier": "insufficient_data", "sellers": 1824, "revenue": 1403005.4}, {"risk_tier": "healthy", "sellers": 665, "revenue": 7658757.57}, {"risk_tier": "needs_coaching", "sellers": 387, "revenue": 4951595.45}, {"risk_tier": "at_risk", "sellers": 219, "revenue": 1722168.61}], "rfm": [{"segment": "hibernating", "customers": 22959, "revenue": 1670442.51}, {"segment": "recent_low_value", "customers": 22120, "revenue": 1615923.67}, {"segment": "needs_attention", "customers": 18381, "revenue": 2793613.0}, {"segment": "high_value_new", "customers": 14641, "revenue": 4435313.07}, {"segment": "big_spenders_lapsed", "customers": 14001, "revenue": 4329976.28}, {"segment": "loyal_at_risk", "customers": 1653, "revenue": 493167.33}, {"segment": "champions", "customers": 1235, "revenue": 397091.17}], "states": [{"customer_state": "SP", "orders": 40501, "late_rate": 0.0449371620453816}, {"customer_state": "RJ", "orders": 12350, "late_rate": 0.12105263157894737}, {"customer_state": "MG", "orders": 11354, "late_rate": 0.04571076272679232}, {"customer_state": "RS", "orders": 5345, "late_rate": 0.0608044901777362}, {"customer_state": "PR", "orders": 4923, "late_rate": 0.04042250660166565}, {"customer_state": "SC", "orders": 3546, "late_rate": 0.08206429780033841}, {"customer_state": "BA", "orders": 3256, "late_rate": 0.12162162162162163}, {"customer_state": "DF", "orders": 2080, "late_rate": 0.05673076923076923}, {"customer_state": "ES", "orders": 1995, "late_rate": 0.10726817042606517}, {"customer_state": "GO", "orders": 1957, "late_rate": 0.06540623403168115}, {"customer_state": "PE", "orders": 1593, "late_rate": 0.096045197740113}, {"customer_state": "CE", "orders": 1279, "late_rate": 0.1376075058639562}]};
+const fmt = (v, d=0) => v == null ? '–' : Number(v).toLocaleString('en-US',{maximumFractionDigits:d,minimumFractionDigits:d});
+const big = v => v >= 1e6 ? fmt(v/1e6,1)+'M' : v >= 1e3 ? fmt(v/1e3,1)+'k' : fmt(v);
+const pct = (v, d=1) => v == null ? '–' : fmt(v*100,d)+'%';
+const kpi = (label, value, note) => `<div class="kpi"><small>${label}</small><b>${value}</b><small>${note||''}</small></div>`;
+const C = {blue:'#2563eb',green:'#16a34a',amber:'#d97706',red:'#dc2626',gray:'#9ca3af',teal:'#0d9488',violet:'#7c3aed'};
+Chart.defaults.font.family = getComputedStyle(document.body).fontFamily; Chart.defaults.color = '#4b5563';
+const make = (id, cfg) => new Chart(document.getElementById(id), Object.assign({options:{}}, cfg));
+const base = (extra={}) => Object.assign({responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}}, extra);
+
+const k = D.kpi[0];
+document.getElementById('kpis').innerHTML =
+  kpi('Orders', big(k.orders)) + kpi('Revenue (GMV)', 'R$'+big(k.gmv)) + kpi('Customers', big(k.customers)) +
+  kpi('Late deliveries', pct(k.late_rate)) + kpi('Avg review', fmt(k.avg_review,2)+' / 5') + kpi('Avg delivery', fmt(k.avg_delivery_days,1)+' days');
+const months = D.monthly.map(r=>r.month.slice(0,7));
+make('monthly',{type:'bar',data:{labels:months,datasets:[
+  {type:'bar',label:'Orders',data:D.monthly.map(r=>r.orders),backgroundColor:C.blue,yAxisID:'y'},
+  {type:'line',label:'GMV (R$)',data:D.monthly.map(r=>r.gmv),borderColor:C.green,backgroundColor:C.green,yAxisID:'y1',tension:.25}]},
+  options:base({plugins:{legend:{display:true}},scales:{y:{title:{display:true,text:'Orders'}},y1:{position:'right',grid:{display:false},title:{display:true,text:'GMV (R$)'}}}})});
+make('buckets',{type:'bar',data:{labels:D.buckets.map(r=>r.bucket),datasets:[{data:D.buckets.map(r=>r.avg_review),
+  backgroundColor:D.buckets.map(r=>r.bucket.includes('late')?C.red:C.green)}]},
+  options:base({scales:{y:{min:1,max:5,title:{display:true,text:'Average review'}}},plugins:{legend:{display:false},
+  tooltip:{callbacks:{afterLabel:c=>fmt(D.buckets[c.dataIndex].orders)+' orders'}}}})});
+make('late',{type:'line',data:{labels:months,datasets:[{data:D.monthly.map(r=>r.late_delivery_rate*100),borderColor:C.red,backgroundColor:C.red,tension:.25}]},
+  options:base({scales:{y:{beginAtZero:true,title:{display:true,text:'% late'}}}})});
+const tierColor = {healthy:C.green,needs_coaching:C.amber,at_risk:C.red,insufficient_data:C.gray};
+make('risk',{type:'doughnut',data:{labels:D.risk.map(r=>r.risk_tier.replace('_',' ')),datasets:[{data:D.risk.map(r=>r.sellers),
+  backgroundColor:D.risk.map(r=>tierColor[r.risk_tier]||C.gray)}]},options:base({plugins:{legend:{display:true,position:'right'}}})});
+document.getElementById('rfm').innerHTML = '<tr><th>Segment</th><th class="n">Customers</th><th class="n">Revenue (R$)</th></tr>' +
+  D.rfm.map(r=>`<tr><td>${r.segment.replaceAll('_',' ')}</td><td class="n">${fmt(r.customers)}</td><td class="n">${big(r.revenue)}</td></tr>`).join('');
+make('states',{type:'bar',data:{labels:D.states.map(r=>r.customer_state),datasets:[{data:D.states.map(r=>r.late_rate*100),backgroundColor:C.amber}]},
+  options:base({scales:{y:{beginAtZero:true,title:{display:true,text:'% late'}}},plugins:{legend:{display:false},
+  tooltip:{callbacks:{afterLabel:c=>fmt(D.states[c.dataIndex].orders)+' delivered orders'}}}})});
+
+</script></body></html>
